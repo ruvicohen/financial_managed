@@ -1,0 +1,25 @@
+name: Deploy
+
+# Placeholder: intentionally a no-op until a Render account is connected to
+# this repository. Render's GitHub-native Blueprint mechanism (render.yaml
+# at the repo root) auto-deploys on push to main once connected - see
+# docs/phase0-setup.md for the manual activation steps. This workflow exists
+# so a deploy step is visibly wired into CI from day one, per the master
+# plan (docs/family_financial_platform_master_plan.md section 54).
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  notify:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deployment reminder
+        run: |
+          echo "CI passed on main. Deployment is handled by Render's native"
+          echo "Blueprint auto-deploy (render.yaml) once a Render account is"
+          echo "connected to this repository - no action taken by this workflow."

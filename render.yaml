@@ -1,0 +1,66 @@
+# Render Blueprint - https://render.com/docs/blueprint-spec
+#
+# Not activated yet. This declares the target production topology so that,
+# once a Render account is connected to this GitHub repo (see
+# docs/phase0-setup.md for the manual steps), Render auto-detects this file
+# and deploys/redeploys these services on every push to main.
+#
+# NOTE TO VERIFY AT ACTIVATION TIME: confirm the chosen Postgres plan
+# supports the pgvector extension; if not, an external Postgres provider
+# with pgvector support will be needed instead.
+
+services:
+  - type: web
+    name: financial-managed-api
+    runtime: docker
+    dockerfilePath: apps/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: financial-managed-db
+          property: connectionString
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: LLM_PROVIDER
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: EMBEDDING_PROVIDER
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: OBJECT_STORAGE_ENDPOINT
+        sync: false
+      - key: OBJECT_STORAGE_BUCKET
+        sync: false
+      - key: OBJECT_STORAGE_ACCESS_KEY
+        sync: false
+      - key: OBJECT_STORAGE_SECRET_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
+
+  - type: web
+    name: financial-managed-web
+    runtime: docker
+    dockerfilePath: apps/web/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: API_URL
+        fromService:
+          type: web
+          name: financial-managed-api
+          property: hostport
+
+databases:
+  - name: financial-managed-db
+    plan: free
+    postgresMajorVersion: "17"
