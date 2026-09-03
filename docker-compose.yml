@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: financial_managed
+    ports:
+      # Host port 5433 avoids colliding with a locally installed PostgreSQL
+      # service that may already be bound to 5432 on the host.
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/financial_managed
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    environment:
+      # Server-only var (no NEXT_PUBLIC_ prefix) read at request time by the
+      # page's Server Component, so it can point at the "api" service's
+      # Docker-network DNS name here without needing a rebuild. If a
+      # client-side (browser) fetch is added in a later phase, it will need a
+      # separate host-reachable URL instead (e.g. via a Next.js
+      # rewrite/route handler that proxies browser requests to this service).
+      API_URL: http://api:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
