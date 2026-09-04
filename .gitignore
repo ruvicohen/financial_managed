@@ -32,7 +32,10 @@ coverage/
 Thumbs.db
 
 # --- Claude Code local config ---
-.claude/
+# .claude/settings.json and .claude/hooks/ are shared project config and are
+# committed intentionally; only personal/local state is ignored here.
+.claude/settings.local.json
+.claude/*.lock
 
 # --- Logs ---
 *.log
