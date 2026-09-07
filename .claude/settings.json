@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "py -3 .claude/hooks/git_guard.py",
+            "command": "py -3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/git_guard.py\"",
             "statusMessage": "Checking Git Workflow policy..."
           }
         ]

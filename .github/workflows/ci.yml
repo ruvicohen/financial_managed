@@ -9,6 +9,25 @@ on:
 jobs:
   backend-quality:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: financial_managed
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/financial_managed
+      SESSION_SECRET: ci-session-secret
+      ALLOWED_GOOGLE_EMAILS: partner-a@example.com,partner-b@example.com
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v3
@@ -19,6 +38,9 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy apps/api/app apps/api/alembic apps/api/tests
+      - name: Apply migrations
+        working-directory: apps/api
+        run: uv run alembic upgrade head
       - run: uv run pytest
 
   frontend-quality:
