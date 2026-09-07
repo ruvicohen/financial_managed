@@ -58,6 +58,22 @@ so the API needs its own public HTTPS URL (it already has one — both services
 are `type: web` in `render.yaml`). The API callback then redirects the browser
 to `FRONTEND_URL`.
 
+### Known limitation — production cookie domain (follow-up before go-live)
+
+The session cookie (`fm_session`) is set by the API on the **API host**. Local
+dev works because the API and web app are both `localhost` (cookies are keyed by
+host, not port). In a **split-host** production deployment (e.g.
+`…-api.onrender.com` + `…-web.onrender.com`) the browser will not send that
+cookie to the web app's origin, so the server-rendered pages won't see the
+session.
+
+Before enabling the live deployment, put both services behind **one origin** —
+either serve the web app and API under the same domain, or add a Next.js
+`rewrites()` entry in `apps/web/next.config.ts` that proxies `/api/*` (and the
+auth routes) to the API and point `GOOGLE_REDIRECT_URI` at that shared origin.
+The production deployment is not activated yet (`render.yaml` is not connected;
+`.github/workflows/deploy.yml` is a placeholder), so this does not block Phase 1.
+
 ## 4. Render dashboard
 
 On the `financial-managed-api` service set: `GOOGLE_CLIENT_ID`,
