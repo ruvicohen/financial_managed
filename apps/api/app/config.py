@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +17,24 @@ class Settings(BaseSettings):
 
     app_env: str
     database_url: str
+
+    @field_validator("database_url")
+    @classmethod
+    def _use_psycopg_driver(cls, v: str) -> str:
+        """Normalize managed-Postgres connection strings to the psycopg3 driver.
+
+        Providers like Render hand out bare ``postgres://``/``postgresql://``
+        URLs. SQLAlchemy defaults a driverless ``postgresql://`` scheme to
+        the legacy psycopg2 dialect, which isn't installed here (only
+        ``psycopg[binary]`` v3 is) - without this, /ready fails at runtime
+        with "No module named 'psycopg2'" even though the app works locally
+        where .env already spells out ``+psycopg`` explicitly.
+        """
+        if v.startswith("postgres://"):
+            v = "postgresql://" + v[len("postgres://") :]
+        if v.startswith("postgresql://"):
+            v = "postgresql+psycopg://" + v[len("postgresql://") :]
+        return v
 
     # Reserved for later phases (Google OAuth - Phase 1)
     google_client_id: str | None = None
