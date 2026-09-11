@@ -10,27 +10,37 @@ stdout. Otherwise exits silently (0) to allow the command through.
 from __future__ import annotations
 
 import json
+import pathlib
 import re
 import subprocess
 import sys
 
 SECRET_SUFFIXES = (".pem", ".key")
 SECRET_BASENAMES = ("id_rsa", "id_ed25519")
+FEATURE_BRANCH_RE = re.compile(r"^(feat|fix|chore|docs|refactor|test|ci|build|perf)/")
 
 
-def deny(reason: str) -> None:
+def _decision(kind: str, reason: str) -> None:
     print(
         json.dumps(
             {
                 "hookSpecificOutput": {
                     "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
+                    "permissionDecision": kind,
                     "permissionDecisionReason": reason,
                 }
             }
         )
     )
     sys.exit(0)
+
+
+def deny(reason: str) -> None:
+    _decision("deny", reason)
+
+
+def ask(reason: str) -> None:
+    _decision("ask", reason)
 
 
 def is_secret_path(path: str) -> bool:
@@ -55,6 +65,29 @@ def current_branch() -> str:
         return result.stdout.strip()
     except OSError:
         return ""
+
+
+def pr_gate_recorded(branch: str) -> bool:
+    """True if the pre-PR review gate marker matches the current HEAD."""
+    if not branch:
+        return True
+    marker = pathlib.Path(".claude/.pr-gate") / f"{branch.replace('/', '__')}.sha"
+    if not marker.is_file():
+        return False
+    try:
+        recorded = marker.read_text(encoding="utf-8").strip()
+    except OSError:
+        return False
+    try:
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.strip()
+    except OSError:
+        return False
+    return bool(head) and recorded == head
 
 
 def working_tree_secret_paths() -> list[str]:
@@ -117,6 +150,18 @@ def main() -> None:
                 "Blocked: currently on main and this push does not target a "
                 "feature branch. Push a feature branch and open a Pull "
                 "Request instead, per the Git Workflow in CLAUDE.md."
+            )
+
+        # --- 2b. Pre-PR review gate on feature-branch pushes ---
+        if FEATURE_BRANCH_RE.match(branch) and not pr_gate_recorded(branch):
+            ask(
+                "Pre-PR review gate not recorded for this commit. Best practice "
+                "(CLAUDE.md > Pre-PR review gate): review the branch diff with "
+                "/security-review and /code-review, fix or record every blocking "
+                "finding, then run:\n"
+                "  py -3 .claude/hooks/pr_gate_pass.py\n"
+                "The `pr` agent runs the whole gate for you. Approve once to "
+                "push without it."
             )
 
     # --- 3. Block staging/committing files that look like secrets ---

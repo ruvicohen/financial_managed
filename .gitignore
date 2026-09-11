@@ -36,6 +36,7 @@ Thumbs.db
 # committed intentionally; only personal/local state is ignored here.
 .claude/settings.local.json
 .claude/*.lock
+.claude/.pr-gate/
 
 # --- Logs ---
 *.log
