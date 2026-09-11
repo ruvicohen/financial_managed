@@ -93,6 +93,31 @@ def test_expired_invitation_is_rejected(
     assert resp.status_code == 400
 
 
+def test_create_invitation_replaces_expired_pending_invitation(
+    make_user: MakeUser, auth_client: AuthClient, db: Session
+) -> None:
+    """Regression: uq_invitations_active_per_household allows only one
+    accepted_at-IS-NULL row per household, so create_invitation must clear an
+    expired-but-never-accepted invite before inserting a new one."""
+    user_a = make_user()
+    client = auth_client(user_a)
+    client.post("/api/v1/households", json={"name": "Shared"})
+    household_id = client.get("/api/v1/households/current").json()["id"]
+
+    db.add(
+        HouseholdInvitation(
+            household_id=household_id,
+            token_hash=_hash("expired-token"),
+            created_by_user_id=user_a.id,
+            expires_at=datetime.now(UTC) - timedelta(hours=1),
+        )
+    )
+    db.flush()
+
+    resp = client.post("/api/v1/households/current/invitations")
+    assert resp.status_code == 201
+
+
 def test_household_capped_at_two_members(make_user: MakeUser, db: Session) -> None:
     user_a, user_b, user_c = make_user(), make_user(), make_user()
     svc = HouseholdService(db)

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, Index, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -10,6 +10,17 @@ from app.models.mixins import TimestampMixin, uuid_pk
 
 class HouseholdInvitation(TimestampMixin, Base):
     __tablename__ = "household_invitations"
+    __table_args__ = (
+        # At most one active (unaccepted) invitation per household. Backs
+        # create_invitation's check-then-insert so a race between two
+        # concurrent "invite partner" requests can't create two.
+        Index(
+            "uq_invitations_active_per_household",
+            "household_id",
+            unique=True,
+            postgresql_where=text("accepted_at IS NULL"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = uuid_pk()
     household_id: Mapped[uuid.UUID] = mapped_column(

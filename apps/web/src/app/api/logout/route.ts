@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { SESSION_COOKIE_NAME } from "@/lib/session-cookie";
+
 const API_URL = process.env.API_URL ?? "http://localhost:8000";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -14,6 +16,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Even if the backend call fails, still clear the local cookie below.
   }
   const response = NextResponse.redirect(new URL("/login", request.url), { status: 303 });
-  response.cookies.set("fm_session", "", { path: "/", maxAge: 0 });
+  response.cookies.set(SESSION_COOKIE_NAME, "", { path: "/", maxAge: 0 });
   return response;
 }

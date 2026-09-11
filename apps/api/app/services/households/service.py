@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import HouseholdContext
@@ -88,7 +89,16 @@ class HouseholdService:
                 role=MembershipRole.OWNER,
             )
         )
-        self.db.flush()
+        try:
+            self.db.flush()
+        except IntegrityError:
+            # Lost a race against a concurrent request that gave this user a
+            # membership first; uq_membership_user_id caught it.
+            self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="User already belongs to a household",
+            ) from None
         return household
 
     def create_invitation(self, ctx: HouseholdContext) -> InvitationResult:
@@ -102,18 +112,22 @@ class HouseholdService:
                 status_code=status.HTTP_409_CONFLICT, detail="Household is already full"
             )
         now = datetime.now(UTC)
-        pending = self.db.execute(
+        active = self.db.execute(
             select(HouseholdInvitation).where(
                 HouseholdInvitation.household_id == ctx.household_id,
                 HouseholdInvitation.accepted_at.is_(None),
-                HouseholdInvitation.expires_at > now,
             )
         ).scalar_one_or_none()
-        if pending is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="An invitation is already pending",
-            )
+        if active is not None:
+            if _aware(active.expires_at) > now:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="An invitation is already pending",
+                )
+            # Expired and never accepted: clear it so a new one can take its
+            # place under uq_invitations_active_per_household.
+            self.db.delete(active)
+            self.db.flush()
         raw_token = secrets.token_urlsafe(32)
         invitation = HouseholdInvitation(
             household_id=ctx.household_id,
@@ -122,7 +136,16 @@ class HouseholdService:
             expires_at=now + INVITE_TTL,
         )
         self.db.add(invitation)
-        self.db.flush()
+        try:
+            self.db.flush()
+        except IntegrityError:
+            # Lost a race against a concurrent invite creation for the same
+            # household; uq_invitations_active_per_household caught it.
+            self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An invitation is already pending",
+            ) from None
         return InvitationResult(invitation=invitation, raw_token=raw_token)
 
     def accept_invitation(self, user: User, raw_token: str) -> HouseholdMembership:
@@ -162,5 +185,14 @@ class HouseholdService:
         self.db.add(membership)
         invitation.accepted_at = datetime.now(UTC)
         invitation.accepted_by_user_id = user.id
-        self.db.flush()
+        try:
+            self.db.flush()
+        except IntegrityError:
+            # Lost a race against a concurrent request that gave this user a
+            # membership first; uq_membership_user_id caught it.
+            self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="User already belongs to a household",
+            ) from None
         return membership

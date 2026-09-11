@@ -21,13 +21,15 @@ def _start_login(client: TestClient, next_path: str = "/dashboard") -> str:
     return parse_qs(urlparse(location).query)["state"][0]
 
 
-def _patch_google(monkeypatch: pytest.MonkeyPatch, *, email: str, verified: bool = True) -> None:
+def _patch_google(
+    monkeypatch: pytest.MonkeyPatch, *, email: str, verified: bool = True, name: str = "Test"
+) -> None:
     monkeypatch.setattr(google, "exchange_code", lambda cfg, code: "fake-access-token")
     monkeypatch.setattr(
         google,
         "fetch_userinfo",
         lambda token: google.GoogleUserInfo(
-            sub=f"google-{email}", email=email, email_verified=verified, name="Test"
+            sub=f"google-{email}", email=email, email_verified=verified, name=name
         ),
     )
 
@@ -54,6 +56,22 @@ def test_callback_allowlisted_creates_session(
     assert me.json()["user"]["email"] == ALLOWED
     assert me.json()["household"] is None
     assert db.execute(select(User).where(User.email == ALLOWED)).scalar_one()
+
+
+def test_callback_creates_user_with_no_google_name(
+    client: TestClient, db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: a Google profile with no display name must not try to
+    persist NULL into the NOT NULL `users.name` column."""
+    state = _start_login(client)
+    _patch_google(monkeypatch, email=ALLOWED, name="")
+
+    resp = client.get(
+        f"/api/v1/auth/google/callback?code=abc&state={state}", follow_redirects=False
+    )
+    assert resp.status_code == 303
+    user = db.execute(select(User).where(User.email == ALLOWED)).scalar_one()
+    assert user.name == ""
 
 
 def test_callback_rejects_non_allowlisted_email(

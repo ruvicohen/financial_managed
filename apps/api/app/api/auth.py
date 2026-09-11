@@ -115,10 +115,15 @@ def google_callback(
 
     user = db.execute(select(User).where(User.google_sub == info.sub)).scalar_one_or_none()
     if user is None:
-        user = User(google_sub=info.sub, email=email)
+        # `name` must be set here: the column's "" default only applies at
+        # INSERT time for an omitted column, not to this transient attribute,
+        # so leaving it unset would try to persist NULL if Google's profile
+        # has no display name.
+        user = User(google_sub=info.sub, email=email, name=info.name or "")
         db.add(user)
+    else:
+        user.name = info.name or user.name
     user.email = email
-    user.name = info.name or user.name
     user.picture_url = info.picture
     user.last_login_at = datetime.now(UTC)
     db.flush()

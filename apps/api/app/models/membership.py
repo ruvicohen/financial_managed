@@ -29,6 +29,10 @@ class HouseholdMembership(TimestampMixin, Base):
         UniqueConstraint(
             "household_id", "partner_label", name="uq_membership_household_partner_label"
         ),
+        # A user belongs to at most one household (closed two-person system).
+        # Backs provision_for_user/accept_invitation's check-then-insert so a
+        # race between concurrent requests can't give one user two rows.
+        UniqueConstraint("user_id", name="uq_membership_user_id"),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
