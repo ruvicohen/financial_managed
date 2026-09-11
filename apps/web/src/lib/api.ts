@@ -2,7 +2,7 @@
 // server (Server Components, Server Actions, Route Handlers), so it's read
 // fresh from the process environment at request time and the API origin is
 // never exposed to the browser.
-const API_URL = process.env.API_URL ?? "http://localhost:8000";
+import { API_URL } from "@/lib/api-url";
 
 export interface HealthStatus {
   status: string;

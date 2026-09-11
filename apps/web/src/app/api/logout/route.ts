@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { API_URL } from "@/lib/api-url";
 import { SESSION_COOKIE_NAME } from "@/lib/session-cookie";
-
-const API_URL = process.env.API_URL ?? "http://localhost:8000";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const cookieHeader = request.headers.get("cookie") ?? "";
