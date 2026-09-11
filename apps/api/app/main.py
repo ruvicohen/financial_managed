@@ -6,6 +6,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.api.router import api_router
+from app.config import get_settings
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
@@ -14,13 +16,16 @@ logger = logging.getLogger(__name__)
 def create_app() -> FastAPI:
     app = FastAPI(title="Financial Managed API", version="0.1.0")
 
+    allow_origins = sorted({"http://localhost:3000", get_settings().frontend_url.rstrip("/")})
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000"],
+        allow_origins=allow_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    app.include_router(api_router)
 
     @app.get("/health")
     def health() -> dict[str, str]:

@@ -6,10 +6,13 @@ conversational interface. See
 [`docs/family_financial_platform_master_plan.md`](docs/family_financial_platform_master_plan.md)
 for the full product and technical plan.
 
-This repository currently implements **Phase 0 - Engineering Foundation**:
-a working backend, frontend, database, and CI pipeline, with no financial
-features yet. See [`docs/phase0-setup.md`](docs/phase0-setup.md) for the
-manual cloud-account setup still needed before a real deployment goes live.
+This repository currently implements **Phase 0 - Engineering Foundation** and
+**Phase 1 - Authentication & Household**: Google sign-in (allowlisted to the two
+partners), DB-backed sessions, one shared household with a copy-paste invite
+link for the second partner, and household-scoped authorization. No financial
+features yet. See [`docs/phase0-setup.md`](docs/phase0-setup.md) and
+[`docs/phase1-setup.md`](docs/phase1-setup.md) for the manual cloud-account and
+Google-OAuth setup needed before a real deployment goes live.
 
 ## Architecture
 
@@ -58,17 +61,20 @@ cp apps/web/.env.example apps/web/.env.local
 `apps/api` when you run `uvicorn`/`alembic` below - hence copying it there
 rather than to the repo root.)
 
-At minimum, `.env` needs `APP_ENV` and `DATABASE_URL` filled in (defaults in
-`.env.example` work with the local Docker Compose Postgres below). Every
-other variable is a placeholder reserved for later phases (Google OAuth, AI
-providers, Telegram, object storage, Redis) - leave them blank for now.
+At minimum, `.env` needs `APP_ENV` and `DATABASE_URL` (defaults in
+`.env.example` work with the local Docker Compose Postgres below). To exercise
+the login flow you also need `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+`SESSION_SECRET`, `ALLOWED_GOOGLE_EMAILS`, and `COOKIE_SECURE=false` - see
+[`docs/phase1-setup.md`](docs/phase1-setup.md). The remaining variables (AI
+providers, Telegram, object storage, Redis) are placeholders for later phases -
+leave them blank.
 
-### Google OAuth (not implemented yet)
+### Google OAuth
 
-Phase 0 ships no authentication - `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`
-are unused placeholders. See
-[`docs/phase0-setup.md`](docs/phase0-setup.md#google-oauth-needed-starting-phase-1-not-phase-0)
-if you want to prepare a Google Cloud OAuth client ahead of Phase 1.
+Sign-in uses the Google authorization-code flow, gated by an email allowlist
+(`ALLOWED_GOOGLE_EMAILS`). Create a Google Cloud OAuth *Web application* client
+with redirect URI `http://localhost:8000/api/v1/auth/google/callback`; full
+steps are in [`docs/phase1-setup.md`](docs/phase1-setup.md).
 
 ## Database startup
 
@@ -105,14 +111,17 @@ pnpm install
 pnpm --filter web dev
 ```
 
-The app listens on `http://localhost:3000` and displays the backend's
-`/health` status, proving frontend-to-backend connectivity in development.
+The app listens on `http://localhost:3000`. Unauthenticated visits redirect to
+`/login`; after Google sign-in you land on `/dashboard` to create the household
+and generate an invite link for the second partner.
 
 ## Tests
 
 ```bash
-# Backend
-uv run pytest
+# Backend - needs the local Postgres running (docker compose up -d postgres).
+# Tests migrate the DB and run inside a rolled-back transaction each.
+DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5433/financial_managed \
+  uv run pytest
 
 # Frontend
 pnpm --filter web test
@@ -166,5 +175,7 @@ hygiene scan (gitleaks).
 
 - [`docs/family_financial_platform_master_plan.md`](docs/family_financial_platform_master_plan.md) -
   full product and technical plan (all phases).
-- [`docs/phase0-setup.md`](docs/phase0-setup.md) - manual cloud/OAuth setup
-  steps not covered by this repo's code.
+- [`docs/phase0-setup.md`](docs/phase0-setup.md) - manual cloud setup steps
+  (Render blueprint activation).
+- [`docs/phase1-setup.md`](docs/phase1-setup.md) - Google OAuth client setup and
+  the Phase 1 environment variables.

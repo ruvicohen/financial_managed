@@ -27,6 +27,14 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: ALLOWED_GOOGLE_EMAILS
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
       - key: LLM_PROVIDER
         sync: false
       - key: OPENAI_API_KEY
