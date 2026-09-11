@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { API_URL } from "@/lib/api-url";
+
 // Keeps the API origin server-side: the browser navigates here, and we bounce
 // it to the backend's Google login endpoint.
-const API_URL = process.env.API_URL ?? "http://localhost:8000";
 
 function safeNext(value: string | null): string {
   if (value && value.startsWith("/") && !value.startsWith("//")) return value;
