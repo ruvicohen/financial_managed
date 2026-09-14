@@ -81,8 +81,9 @@ On the `financial-managed-api` service set: `GOOGLE_CLIENT_ID`,
 `ALLOWED_GOOGLE_EMAILS` (and optionally `COOKIE_SECURE=true`). `SESSION_SECRET`
 is generated automatically. The web service needs nothing new.
 
-Run the new migration as part of deploy: `alembic upgrade head` (revision
-`b7f3c1d20a41_auth_and_household`).
+The API container now runs `alembic upgrade head` automatically on every boot
+(see `apps/api/Dockerfile`), so this revision (`b7f3c1d20a41_auth_and_household`)
+and future ones apply on deploy with no manual step.
 
 ## 5. Local smoke test
 
