@@ -46,10 +46,11 @@ Optional tunables with working defaults — set only to override:
 `APP_ENV`, `DATABASE_URL`.
 
 ### Web service (`apps/web`)
-**No new variables.** The "Sign in with Google" button navigates to the local
-route handler `/api/auth/login`, which redirects using the existing server-only
-`API_URL`. `API_URL` only needs to be reachable from the web server (Render's
-internal `fromService` hostport is fine).
+**No new variables.** The "Sign in with Google" button links directly to
+`/api/v1/auth/google/login`, which `apps/web/next.config.ts` rewrites
+server-side to the API using the existing server-only `API_URL`. `API_URL`
+only needs to be reachable from the web server (Render's internal
+`fromService` hostport is fine).
 
 ## 3. Deployment topology note
 
@@ -68,10 +69,10 @@ server-rendered pages never see them — landing back on `/login` right after a
 successful sign-in.
 
 `apps/web/next.config.ts` now proxies `/api/v1/:path*` to the API
-(`rewrites()`), and `apps/web/src/app/api/auth/login/route.ts` redirects to
-this app's own `/api/v1/auth/google/login` instead of the API's origin
-directly, so both OAuth hops (login and callback) — and therefore both
-cookies — stay on the web app's host.
+(`rewrites()`), and the "Sign in with Google" links point at this app's own
+`/api/v1/auth/google/login` instead of the API's origin directly, so both
+OAuth hops (login and callback) — and therefore both cookies — stay on the
+web app's host.
 
 This still requires one manual step per environment: set `GOOGLE_REDIRECT_URI`
 (the API's env var) to `https://<web-app-host>/api/v1/auth/google/callback`,

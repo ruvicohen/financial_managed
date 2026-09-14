@@ -32,7 +32,7 @@ export default async function LoginPage({
           </p>
         )}
         <a
-          href="/api/auth/login?next=/dashboard"
+          href="/api/v1/auth/google/login?next=/dashboard"
           className={cn(buttonVariants({ size: "lg" }), "w-full")}
         >
           Sign in with Google
