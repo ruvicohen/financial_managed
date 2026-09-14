@@ -16,7 +16,7 @@ export default async function JoinPage({
 
   const me = await getCurrentUser();
   if (!me) {
-    redirect(`/api/auth/login?next=${encodeURIComponent(`/join?token=${token}`)}`);
+    redirect(`/api/v1/auth/google/login?next=${encodeURIComponent(`/join?token=${token}`)}`);
   }
 
   return (
