@@ -53,26 +53,30 @@ internal `fromService` hostport is fine).
 
 ## 3. Deployment topology note
 
-Google redirects the browser **directly to the API** at `GOOGLE_REDIRECT_URI`,
-so the API needs its own public HTTPS URL (it already has one — both services
-are `type: web` in `render.yaml`). The API callback then redirects the browser
-to `FRONTEND_URL`.
+Google redirects the browser to `GOOGLE_REDIRECT_URI`, which must point at the
+**web app's** public host, not the API's — see the cookie-domain note below.
+The callback then redirects the browser to `FRONTEND_URL`.
 
-### Known limitation — production cookie domain (follow-up before go-live)
+### Production cookie domain — resolved via same-origin proxy
 
-The session cookie (`fm_session`) is set by the API on the **API host**. Local
-dev works because the API and web app are both `localhost` (cookies are keyed by
-host, not port). In a **split-host** production deployment (e.g.
-`…-api.onrender.com` + `…-web.onrender.com`) the browser will not send that
-cookie to the web app's origin, so the server-rendered pages won't see the
-session.
+The session cookie (`fm_session`) and the OAuth `state` cookie are set by the
+API, `httponly`, with no `Domain` attribute, so the browser scopes them to
+whichever host issued the response. In a **split-host** deployment (e.g.
+`…-api.onrender.com` + `…-web.onrender.com`), if the API responds directly to
+the browser, those cookies land on the API's host and the web app's
+server-rendered pages never see them — landing back on `/login` right after a
+successful sign-in.
 
-Before enabling the live deployment, put both services behind **one origin** —
-either serve the web app and API under the same domain, or add a Next.js
-`rewrites()` entry in `apps/web/next.config.ts` that proxies `/api/*` (and the
-auth routes) to the API and point `GOOGLE_REDIRECT_URI` at that shared origin.
-The production deployment is not activated yet (`render.yaml` is not connected;
-`.github/workflows/deploy.yml` is a placeholder), so this does not block Phase 1.
+`apps/web/next.config.ts` now proxies `/api/v1/:path*` to the API
+(`rewrites()`), and `apps/web/src/app/api/auth/login/route.ts` redirects to
+this app's own `/api/v1/auth/google/login` instead of the API's origin
+directly, so both OAuth hops (login and callback) — and therefore both
+cookies — stay on the web app's host.
+
+This still requires one manual step per environment: set `GOOGLE_REDIRECT_URI`
+(the API's env var) to `https://<web-app-host>/api/v1/auth/google/callback`,
+and add that same URL to the OAuth client's Authorized redirect URIs in Google
+Cloud Console.
 
 ## 4. Render dashboard
 
